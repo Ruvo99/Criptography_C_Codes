@@ -1,0 +1,28 @@
+#include <stdio.h>
+#include <sodium.h>
+
+int foo(FILE *file1, FILE *file2)
+{
+    char myString32[32];
+    char myString64[64];
+    if (sodium_init() < 0) return 1;
+
+    int i = 0;
+    while(i < 5){
+        randombytes_buf(myString32, 32);
+        randombytes_buf(myString64, 64);
+        fprintf(file1, "%s\n", myString32);
+        fprintf(file2, "%s\n", myString64);
+        i++;
+    }
+}
+
+int main()
+{
+    FILE *file1, *file2;
+    file1 = fopen("PRNG32.txt","w");
+    file2 = fopen("PRNG64.txt","w");
+    foo(file1, file2);
+    fclose(file1);
+    fclose(file2);
+}
