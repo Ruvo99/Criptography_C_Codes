@@ -2,6 +2,7 @@
 #include <sodium.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <math.h>
 
 #define MAX 0xffffffffffffffff
 typedef __uint128_t uint128_t;
@@ -10,6 +11,7 @@ unsigned long long myNumA[4];
 unsigned long long myNumB[4];
 unsigned long long myNumC[4];
 unsigned long long p[4];
+unsigned long long niu[8];
 
 unsigned long long *sum(unsigned long long myNumA[], unsigned long long myNumB[]);
 unsigned long long *sub(unsigned long long myNumA[], unsigned long long myNumB[]);
@@ -63,7 +65,7 @@ unsigned long long *sum(unsigned long long myNumA[], unsigned long long myNumB[]
         *myNumC = sub(myNumC, p);
     }
 
-    return *myNumC;
+    return myNumC;
 }
 
 unsigned long long *sub(unsigned long long myNumA[], unsigned long long myNumB[])
@@ -90,13 +92,13 @@ unsigned long long *sub(unsigned long long myNumA[], unsigned long long myNumB[]
         *myNumC = sum(myNumC, p);
     }
 
-    return *myNumC;
+    return myNumC;
 }
 
-void mult(unsigned long long myNumA[], unsigned long long myNumB[])
+unsigned long long *mult(unsigned long long myNumA[], unsigned long long myNumB[])
 {
     uint128_t carry = 0;
-    unsigned long long result[8];
+    static unsigned long long result[8];
     int i, j;
 
     for (i = 0; i < 8; i++)
@@ -115,16 +117,121 @@ void mult(unsigned long long myNumA[], unsigned long long myNumB[])
         }
         result[i+j+1] = (unsigned long long)(carry >> 64);
     }
-     
+    
+    for(int i = 0; i < 8; i++)
+    {
+        result[i] = (unsigned long long) result[i];
+    }
     printHexMult(result);
+
+    return result;
+}
+
+unsigned long long *Barret(unsigned long long *t, unsigned long long *niu)
+{
+    //Dividir q para usar los 4 más bajos
+    static unsigned long long q[8];
+    q[7] = 0x0;
+    q[6] = 0x0;
+    q[5] = 0x0;
+    q[4] = 0x0;
+    q[3] = t[7];
+    q[2] = t[6];
+    q[1] = t[5];
+    q[0] = t[4];
+
+    //Dividir NIU para usar la parte baja (2 más bajos)
+    niu[7] = 0x0;
+    niu[6] = 0x0;
+    niu[5] = 0x0;
+    niu[4] = 0x0;
+    niu[3] = 0x0;
+    niu[2] = 0x0;
+    niu[1] = t[7];
+    niu[0] = t[6];
+
+
+    unsigned long long *finalQ;
+    finalQ = mult(q, niu);
+
+    //Máscara de 64*6
+    static unsigned long long mask64x6[8];
+    mask64x6[7] = 0x0;
+    mask64x6[6] = 0x0;
+    mask64x6[5] = MAX;
+    mask64x6[4] = MAX;
+    mask64x6[3] = MAX;
+    mask64x6[2] = MAX;
+    mask64x6[1] = MAX;
+    mask64x6[0] = MAX;
+
+    //Aplicar máscara (t mod b^k+1)
+    static unsigned long long r1[8];
+    for(int i = 0; i < 8; i++)
+    {
+        r1[i] = t[i] && mask64x6[i]; 
+    }
+
+    //Segunda parte de r (q*p mod b^k+1)
+    unsigned long long *r2;
+    r2 = mult(finalQ, p);
+    for(int i = 0; i < 8; i++)
+    {
+        r2[i] = r2[i] && mask64x6[i];
+    }
+
+    //r = r1 - r2
+    unsigned long long *r;
+    r = sub(r1, r2);
+
+    int flag = 0;
+    while(flag == 0){
+        if(r[3] > p[3]){
+           r = sub(r, p);
+           flag == 1;
+           continue;
+        }else if(r[2] > p[2]){
+            r = sub(r, p);
+           flag == 1;
+           continue;
+        }else if(r[1] > p[1]){
+            r = sub(r, p);
+           flag == 1;
+           continue;
+        }else if(r[0] > p[0]){
+            r = sub(r, p);
+           flag == 1;
+           continue;
+        }else{
+            break;
+        }
+    }
+
+    return r;
 }
 
 int main()
 {
+    unsigned long long *multi;
+    unsigned long long *barret;
+
     p[3] = 0x2523648240000001;
     p[2] = 0xba344d8000000008;
     p[1] = 0x6121000000000013;
     p[0] = 0xa700000000000013;
+
+    niu[7] = 0x6e4a6484093af339;
+    niu[6] = 0x47fcedba37bb36c3;
+    niu[5] = 0x9240464503b56f61;
+    niu[4] = 0x05a5f8d224c735a9;
+    niu[3] = 0x1ba63d79cb5fdc86;
+    niu[2] = 0x63418417fcabe8b3;
+    niu[1] = 0x9;
+    niu[0] = 0x0;
+
+    uint128_t b = (uint128_t)pow(2, 64);
+    int k = 5; 
+
 
     if (sodium_init() < 0) return 1;
 
@@ -167,5 +274,10 @@ int main()
 
     printf("\n(A x B) in process...");
     printf("\nC = ");
-    mult(myNumA, myNumB);
+    multi = mult(myNumA, myNumB);
+
+    printf("\nBarret in process...");
+    printf("\nr = ");
+    barret = Barret(multi, niu);
+    printHexNormal(barret);
 }
