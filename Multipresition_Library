@@ -1,0 +1,171 @@
+#include <stdlib.h>
+#include <sodium.h>
+#include <stdio.h>
+#include <inttypes.h>
+
+#define MAX 0xffffffffffffffff
+typedef __uint128_t uint128_t;
+
+unsigned long long myNumA[4];
+unsigned long long myNumB[4];
+unsigned long long myNumC[4];
+unsigned long long p[4];
+
+unsigned long long *sum(unsigned long long myNumA[], unsigned long long myNumB[]);
+unsigned long long *sub(unsigned long long myNumA[], unsigned long long myNumB[]);
+
+void printHexNormal(unsigned long long *arr)
+{
+    for(int i = 3; i >= 0 ; i--){
+        printf("%llx", arr[i]);
+        // printf("%llu", arr[i]);
+    }
+}
+
+void printHexMult(unsigned long long *arr)
+{
+    for(int i = 7; i >= 0 ; i--){
+        printf("%llx", arr[i]);
+        // printf("%llu", arr[i]);
+    }
+}
+
+void printPartsHex(unsigned long long *arr)
+{
+    for(int i = 0; i < 4 ; i++){
+        printf("[%d] = %llx\n", i, arr[i]);
+        //printf("[%d] = %llu\n", i, arr[i]);
+    }
+}
+
+unsigned long long *sum(unsigned long long myNumA[], unsigned long long myNumB[])
+{
+    unsigned long long carry = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        myNumC[i] = myNumA[i] + myNumB[i] + carry;
+        if((MAX - myNumB[i]) < myNumA[i])
+        {
+            carry = 1;
+        }
+        else
+        {
+            carry = 0;
+        }
+        
+        // printf("C[%d] = %llx\n", i, myNumC[i]);
+        // printf("carry = %d\n", carry);
+    }
+
+    if(carry == 1 || myNumC[3] > p[3])
+    {
+        //carry = 0;
+        *myNumC = sub(myNumC, p);
+    }
+
+    return *myNumC;
+}
+
+unsigned long long *sub(unsigned long long myNumA[], unsigned long long myNumB[])
+{
+    unsigned long long borrow = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        myNumC[i] = (myNumA[i] - borrow) - myNumB[i];
+        if(myNumA[i] < myNumB[i])
+        {
+            borrow = 1;
+        }
+        else
+        {
+            borrow = 0;
+        }
+
+        // printf("C[%d] = %llx\n", i, myNumC[i]);
+        // printf("carry = %d\n", borrow);
+    }
+    
+    if(borrow == 1)
+    {
+        *myNumC = sum(myNumC, p);
+    }
+
+    return *myNumC;
+}
+
+void mult(unsigned long long myNumA[], unsigned long long myNumB[])
+{
+    uint128_t carry = 0;
+    unsigned long long result[8];
+    int i, j;
+
+    for (i = 0; i < 8; i++)
+    {
+        result[i] = 0x0;
+    } 
+
+    for (i = 0; i < 4; i++)
+    {
+        carry = 0;
+        for (j = 0; j < 4; j++)
+        {
+            carry = carry >> 64;
+            carry += result[i+j] + ((uint128_t)myNumA[j]) * ((uint128_t)myNumB[i]);
+            result[i+j] = carry;
+        }
+        result[i+j+1] = (unsigned long long)(carry >> 64);
+    }
+     
+    printHexMult(result);
+}
+
+int main()
+{
+    p[3] = 0x2523648240000001;
+    p[2] = 0xba344d8000000008;
+    p[1] = 0x6121000000000013;
+    p[0] = 0xa700000000000013;
+
+    if (sodium_init() < 0) return 1;
+
+    for(int i = 0; i < 4 ; i++){
+        randombytes_buf(&myNumA[i], 8);
+        randombytes_buf(&myNumB[i], 8);
+    }
+
+    // myNumA[0] = 0x1111111111111111;
+    // myNumA[1] = 0x1111111111111111;
+    // myNumA[2] = 0x1111111111111111;
+    // myNumA[3] = 0x1111111111111111;
+    // myNumB[0] = 0xffffffffffffffff;
+    // myNumB[1] = 0xffffffffffffffff;
+    // myNumB[2] = 0xffffffffffffffff;
+    // myNumB[3] = 0xffffffffffffffff;
+
+    // printPartsHex(myNumA);
+    // printPartsHex(myNumB);
+
+    printf("\nA = ");
+    printHexNormal(myNumA);
+
+    printf("\nB = ");
+    printHexNormal(myNumB);
+
+    printf("\n(A + B) in process...");
+    printf("\nC = ");
+    sum(myNumA, myNumB);
+    printHexNormal(myNumC);
+
+    printf("\n");
+
+    printf("\n(A - B) in process...");
+    printf("\nC = ");
+    sub(myNumA, myNumB);
+    printHexNormal(myNumC);
+
+    // printf("\n");
+
+    // printf("\n(A x B) in process...");
+    // printf("\nC = ");
+    // mult(myNumA, myNumB);
+}
