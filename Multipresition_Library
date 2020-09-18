@@ -163,9 +163,9 @@ int main()
     sub(myNumA, myNumB);
     printHexNormal(myNumC);
 
-    // printf("\n");
+    printf("\n");
 
-    // printf("\n(A x B) in process...");
-    // printf("\nC = ");
-    // mult(myNumA, myNumB);
+    printf("\n(A x B) in process...");
+    printf("\nC = ");
+    mult(myNumA, myNumB);
 }
